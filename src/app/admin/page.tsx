@@ -94,8 +94,8 @@ export default function AdminDashboardPage() {
 
   const [deletingUser, setDeletingUser] = useState<AdminUserData | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-
-  const isAdmin = user?.email?.toLowerCase() === "pratapvarmauppalapati6@gmail.com";
+  const userEmail = (user?.email || "").toLowerCase().trim();
+  const isAdmin = userEmail === "pratapvarmauppalapati6@gmail.com";
 
   // Data fetching
   const loadAdminData = useCallback(async (quiet = false) => {
@@ -105,8 +105,8 @@ export default function AdminDashboardPage() {
         apiClient.getAdminOverview(),
         apiClient.getAdminUsers(),
       ]);
-      setOverview(ovData);
-      setUsersList(usrData.users as AdminUserData[]);
+      setOverview(ovData || null);
+      setUsersList(Array.isArray(usrData?.users) ? (usrData.users as AdminUserData[]) : []);
       setError(null);
     } catch (err: unknown) {
       console.error("Admin data fetch failed:", err);
@@ -332,7 +332,18 @@ export default function AdminDashboardPage() {
   };
 
   // Access check guard
-  if (!isContextLoading && authStatus !== "loading" && !isAdmin) {
+  if (isContextLoading || authStatus === "loading") {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <RefreshCw className="w-8 h-8 animate-spin text-emerald-400 mx-auto" />
+          <p className="text-xs text-slate-400 font-medium">Verifying administrator credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="min-h-[75vh] flex items-center justify-center p-4">
         <GlassCard variant="elevated" className="max-w-md w-full p-8 text-center space-y-4">
