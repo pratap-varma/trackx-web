@@ -74,10 +74,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const isAdminUser = userEmail === "pratapvarmauppalapati6@gmail.com";
 
       if (isAdminUser) {
-        if (pathname.startsWith("/login") || pathname.startsWith("/signup") || isOnboarding) {
+        if (pathname !== "/admin") {
           router.replace("/admin");
-          return;
         }
+        return;
       }
 
       const isNewUser = profileStatus === "missing";
@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       } else {
         // Completed onboarding: redirect away from auth pages and onboarding
         if (pathname.startsWith("/login") || pathname.startsWith("/signup") || isOnboarding) {
-          router.replace(isAdminUser ? "/admin" : "/dashboard");
+          router.replace("/dashboard");
         }
       }
     }
@@ -301,6 +301,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const userEmail = (user?.email || firebaseUser?.email || "").toLowerCase().trim();
+  const isAdminUser = userEmail === "pratapvarmauppalapati6@gmail.com";
+
   return (
     <>
       {/* Mobile / Tablet Top Header */}
@@ -311,13 +314,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Application Canvas */}
       <div className="lg:pl-[168px] w-full min-h-screen">
-        <main className="px-5 sm:px-6 lg:px-8 py-6 max-w-[1280px] w-full pb-28 lg:pb-8">
+        <main className={`px-5 sm:px-6 lg:px-8 py-6 max-w-[1280px] w-full ${isAdminUser ? "pb-8" : "pb-28 lg:pb-8"}`}>
           {children}
         </main>
       </div>
 
-      {/* Mobile Bottom Floating Dock */}
-      <MobileBottomDock />
+      {/* Mobile Bottom Floating Dock (only for student accounts) */}
+      {!isAdminUser && <MobileBottomDock />}
     </>
   );
 }

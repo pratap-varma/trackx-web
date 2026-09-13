@@ -191,6 +191,32 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Clear previous student data from this admin account
+  const [isClearingData, setIsClearingData] = useState(false);
+  const handleClearAdminStudentData = async () => {
+    if (!confirm("Are you sure you want to delete all previous student courses, timetable, and attendance records from this admin account?")) {
+      return;
+    }
+    setIsClearingData(true);
+    try {
+      await apiClient.clearAdminStudentData();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("trackx_subjects");
+        localStorage.removeItem("trackx_records");
+        localStorage.removeItem("trackx_timetable");
+        localStorage.removeItem("trackx_grades");
+        localStorage.removeItem("trackx_academic_events");
+        localStorage.removeItem("trackx_class_notes");
+      }
+      setActionNotice("All previous student data (courses, timetable, attendance) has been permanently cleared from your admin account.");
+      loadAdminData(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to clear student data");
+    } finally {
+      setIsClearingData(false);
+    }
+  };
+
   // Format relative time
   const formatTimeAgo = (ts: number) => {
     const diffSec = Math.floor((Date.now() - ts) / 1000);
@@ -201,8 +227,9 @@ export default function AdminDashboardPage() {
   };
 
   // Action badge renderer
-  const renderActionBadge = (action: string, details?: Record<string, unknown>) => {
-    switch (action) {
+  const renderActionBadge = (action: string = "", details?: Record<string, unknown>) => {
+    const act = action || "";
+    switch (act) {
       case "attendance_mark": {
         const isPresent = details?.status === "present";
         return (
@@ -245,7 +272,7 @@ export default function AdminDashboardPage() {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
             <Layers className="w-3 h-3" />
-            {action.replace("_", " ").toUpperCase()}
+            {act.replace(/_/g, " ").toUpperCase()}
           </span>
         );
       case "signup":
@@ -265,38 +292,43 @@ export default function AdminDashboardPage() {
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
-            {action.replace("_", " ").toUpperCase()}
+            {act ? act.replace(/_/g, " ").toUpperCase() : "ACTIVITY"}
           </span>
         );
     }
   };
 
   // Helper description of activity
-  const formatActivityDetail = (action: string, details?: Record<string, unknown>) => {
+  const formatActivityDetail = (action: string = "", details?: Record<string, unknown>) => {
     if (!details) return "";
-    if (action === "attendance_mark") {
+    const act = action || "";
+    if (act === "attendance_mark") {
       const p = details.periodNumber ? ` • Period ${details.periodNumber}` : "";
       const d = details.date ? ` on ${String(details.date).split("T")[0]}` : "";
-      return `Marked ${details.status} (${details.durationHours || 1}h)${p}${d}`;
+      return `Marked ${details.status || "class"} (${details.durationHours || 1}h)${p}${d}`;
     }
-    if (action === "ocr_scan") {
+    if (act === "ocr_scan") {
       return `Processed ${details.type || "image"} OCR • Detected ${details.slotsFound || details.subjectsFound || 0} items`;
     }
-    if (action === "timetable_update") {
-      if (details.replace) return `Imported full timetable schedule (${details.count} slots)`;
-      if (details.action === "clear_day") return `Cleared schedule for Day ${details.dayOfWeek}`;
+    if (act === "timetable_update") {
+      if (details.replace) return `Imported full timetable schedule (${details.count || 0} slots)`;
+      if (details.action === "clear_day") return `Cleared schedule for Day ${details.dayOfWeek ?? ""}`;
       return `Updated timetable slot`;
     }
-    if (action === "subject_create") {
+    if (act === "subject_create") {
       return `Created subject: ${details.name || details.code || "Course"}`;
     }
-    if (action === "profile_update") {
+    if (act === "profile_update") {
       return `Updated profile details (${details.branch || ""}, Sem ${details.semester || ""})`;
     }
-    if (action === "login") {
+    if (act === "login") {
       return `Authenticated via ${details.method || "session"}`;
     }
-    return JSON.stringify(details);
+    try {
+      return JSON.stringify(details);
+    } catch {
+      return "";
+    }
   };
 
   // Access check guard
@@ -327,28 +359,32 @@ export default function AdminDashboardPage() {
 
   // Filtered lists
   const filteredActivities = (overview?.recentActivities || []).filter((act) => {
+    const q = (searchQuery || "").toLowerCase();
+    const actName = (act?.userName || "").toLowerCase();
+    const actEmail = (act?.userEmail || "").toLowerCase();
     const matchesSearch =
       !searchQuery ||
-      act.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.userEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      actName.includes(q) ||
+      actEmail.includes(q);
+    const actAction = act?.action || "";
     const matchesAction =
       actionFilter === "all" ||
-      (actionFilter === "attendance" && act.action.startsWith("attendance_")) ||
-      (actionFilter === "auth" && (act.action === "login" || act.action === "signup")) ||
-      (actionFilter === "ocr" && act.action === "ocr_scan") ||
-      (actionFilter === "timetable" && act.action === "timetable_update") ||
-      (actionFilter === "subject" && act.action.startsWith("subject_"));
+      (actionFilter === "attendance" && actAction.startsWith("attendance_")) ||
+      (actionFilter === "auth" && (actAction === "login" || actAction === "signup")) ||
+      (actionFilter === "ocr" && actAction === "ocr_scan") ||
+      (actionFilter === "timetable" && actAction === "timetable_update") ||
+      (actionFilter === "subject" && actAction.startsWith("subject_"));
     return matchesSearch && matchesAction;
   });
 
-  const filteredUsers = usersList.filter((u) => {
+  const filteredUsers = (usersList || []).filter((u) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      u.name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.branch?.toLowerCase().includes(q) ||
-      u.collegeName?.toLowerCase().includes(q)
+      (u?.name || "").toLowerCase().includes(q) ||
+      (u?.email || "").toLowerCase().includes(q) ||
+      (u?.branch || "").toLowerCase().includes(q) ||
+      (u?.collegeName || "").toLowerCase().includes(q)
     );
   });
 
@@ -378,7 +414,17 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleClearAdminStudentData}
+            disabled={isClearingData}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
+            title="Wipe previous student courses/records attached to this admin email"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {isClearingData ? "Purging..." : "Clear My Student Data"}
+          </button>
+
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
@@ -427,11 +473,11 @@ export default function AdminDashboardPage() {
             <Users className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white">
-            {isLoading ? "—" : overview?.metrics.totalUsers || 0}
+            {isLoading ? "—" : (overview?.metrics?.totalUsers ?? 0)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
             <span className="text-emerald-400 font-semibold">
-              {usersList.filter((u) => u.onboardingCompleted).length}
+              {(usersList || []).filter((u) => u?.onboardingCompleted).length}
             </span>{" "}
             onboarded active
           </div>
@@ -443,7 +489,7 @@ export default function AdminDashboardPage() {
             <Activity className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white">
-            {isLoading ? "—" : overview?.metrics.activeToday || 0}
+            {isLoading ? "—" : (overview?.metrics?.activeToday ?? 0)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Within the last 24 hours
@@ -456,7 +502,7 @@ export default function AdminDashboardPage() {
             <CalendarDays className="w-4 h-4 text-indigo-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white">
-            {isLoading ? "—" : overview?.metrics.totalAttendanceRecords || 0}
+            {isLoading ? "—" : (overview?.metrics?.totalAttendanceRecords ?? 0)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Attendance marks recorded
@@ -469,7 +515,7 @@ export default function AdminDashboardPage() {
             <Layers className="w-4 h-4 text-purple-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white">
-            {isLoading ? "—" : overview?.metrics.totalSubjects || 0}
+            {isLoading ? "—" : (overview?.metrics?.totalSubjects ?? 0)}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">
             Across all enrolled students
@@ -489,7 +535,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            Live Activity Feed ({overview?.recentActivities.length || 0})
+            Live Activity Feed ({overview?.recentActivities?.length ?? 0})
           </button>
           <button
             onClick={() => setActiveTab("users")}
@@ -500,7 +546,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            Student Accounts ({usersList.length})
+            Student Accounts ({(usersList || []).length})
           </button>
         </div>
 
@@ -571,18 +617,18 @@ export default function AdminDashboardPage() {
                   <div className="flex items-start gap-3">
                     {/* User Avatar */}
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center text-xs font-bold text-cyan-300 shrink-0 mt-0.5 sm:mt-0">
-                      {act.userName.charAt(0).toUpperCase()}
+                      {(act?.userName || act?.userEmail || "U").charAt(0).toUpperCase()}
                     </div>
 
                     {/* Description */}
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-white">{act.userName}</span>
-                        <span className="text-[11px] text-slate-400 font-mono">({act.userEmail})</span>
-                        {renderActionBadge(act.action, act.details)}
+                        <span className="text-xs font-bold text-white">{act?.userName || "Student"}</span>
+                        {act?.userEmail && <span className="text-[11px] text-slate-400 font-mono">({act.userEmail})</span>}
+                        {renderActionBadge(act?.action || "", act?.details)}
                       </div>
                       <p className="text-xs text-slate-300">
-                        {formatActivityDetail(act.action, act.details)}
+                        {formatActivityDetail(act?.action || "", act?.details)}
                       </p>
                     </div>
                   </div>
@@ -592,7 +638,7 @@ export default function AdminDashboardPage() {
                     <div className="text-right">
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {formatTimeAgo(act.timestamp)}
+                        {formatTimeAgo(act?.timestamp || Date.now())}
                       </span>
                     </div>
 
@@ -642,81 +688,84 @@ export default function AdminDashboardPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3.5 pl-5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
-                              {u.name?.charAt(0).toUpperCase() || "S"}
-                            </div>
-                            <div>
-                              <div className="font-bold text-white flex items-center gap-1.5">
-                                {u.name || "Student"}
-                                {u.email.toLowerCase() === "pratapvarmauppalapati6@gmail.com" && (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                    ADMIN
-                                  </span>
-                                )}
+                    filteredUsers.map((u) => {
+                      const isAdm = (u?.email || "").toLowerCase().trim() === "pratapvarmauppalapati6@gmail.com";
+                      return (
+                        <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="p-3.5 pl-5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center font-bold text-cyan-300 text-xs shrink-0">
+                                {(u?.name || u?.email || "S").charAt(0).toUpperCase()}
                               </div>
-                              <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                              <div>
+                                <div className="font-bold text-white flex items-center gap-1.5">
+                                  {u?.name || "Student"}
+                                  {isAdm && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                      ADMIN
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-mono">{u?.email || "No Email"}</div>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="p-3.5">
-                          <div className="text-slate-300">{u.branch || "General"}</div>
-                          <div className="text-[11px] text-slate-400">
-                            Semester {u.semester || 1} • {u.collegeName || "University"}
-                          </div>
-                        </td>
+                          <td className="p-3.5">
+                            <div className="text-slate-300">{u?.branch || "General"}</div>
+                            <div className="text-[11px] text-slate-400">
+                              Semester {u?.semester || 1} • {u?.collegeName || "University"}
+                            </div>
+                          </td>
 
-                        <td className="p-3.5 text-center">
-                          <span className="px-2 py-0.5 rounded-full font-bold text-[11px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
-                            {u.globalTarget || 75}%
-                          </span>
-                        </td>
+                          <td className="p-3.5 text-center">
+                            <span className="px-2 py-0.5 rounded-full font-bold text-[11px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
+                              {u?.globalTarget || 75}%
+                            </span>
+                          </td>
 
-                        <td className="p-3.5 text-center text-slate-300 font-semibold">
-                          {u.subjectsCount}
-                        </td>
+                          <td className="p-3.5 text-center text-slate-300 font-semibold">
+                            {u?.subjectsCount ?? 0}
+                          </td>
 
-                        <td className="p-3.5 text-center text-slate-300 font-semibold">
-                          {u.attendanceCount}
-                        </td>
+                          <td className="p-3.5 text-center text-slate-300 font-semibold">
+                            {u?.attendanceCount ?? 0}
+                          </td>
 
-                        <td className="p-3.5 text-slate-400 text-[11px]">
-                          {formatTimeAgo(u.lastActiveTimestamp || u.updatedTimestamp || Date.now())}
-                        </td>
+                          <td className="p-3.5 text-slate-400 text-[11px]">
+                            {formatTimeAgo(u?.lastActiveTimestamp || u?.updatedTimestamp || Date.now())}
+                          </td>
 
-                        <td className="p-3.5 pr-5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleInspectUser(u.id)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-                              title="Inspect Full Data"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEdit(u)}
-                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-cyan-400 hover:text-cyan-300 transition-all cursor-pointer"
-                              title="Edit Parameters"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            {u.email.toLowerCase() !== "pratapvarmauppalapati6@gmail.com" && (
+                          <td className="p-3.5 pr-5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() => setDeletingUser(u)}
-                                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all cursor-pointer"
-                                title="Delete Account"
+                                onClick={() => handleInspectUser(u.id)}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+                                title="Inspect Full Data"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Eye className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              <button
+                                onClick={() => handleOpenEdit(u)}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-cyan-400 hover:text-cyan-300 transition-all cursor-pointer"
+                                title="Edit Parameters"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              {!isAdm && (
+                                <button
+                                  onClick={() => setDeletingUser(u)}
+                                  className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all cursor-pointer"
+                                  title="Delete Account"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -732,11 +781,11 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold text-base">
-                  {inspectUser?.user.name?.charAt(0).toUpperCase() || "S"}
+                  {(inspectUser?.user?.name || inspectUser?.user?.email || "S").charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">{inspectUser?.user.name}</h3>
-                  <p className="text-xs text-slate-400 font-mono">{inspectUser?.user.email} • ID: {inspectUser?.user.id}</p>
+                  <h3 className="text-base font-bold text-white">{inspectUser?.user?.name || "Student"}</h3>
+                  <p className="text-xs text-slate-400 font-mono">{inspectUser?.user?.email} • ID: {inspectUser?.user?.id}</p>
                 </div>
               </div>
               <button
@@ -758,20 +807,20 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Branch</span>
-                    <span className="font-bold text-white text-sm">{inspectUser.user.branch}</span>
+                    <span className="font-bold text-white text-sm">{inspectUser.user?.branch || "General"}</span>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Semester</span>
-                    <span className="font-bold text-white text-sm">Sem {inspectUser.user.semester}</span>
+                    <span className="font-bold text-white text-sm">Sem {inspectUser.user?.semester ?? 1}</span>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Target Attendance</span>
-                    <span className="font-bold text-emerald-400 text-sm">{inspectUser.user.globalTarget}%</span>
+                    <span className="font-bold text-emerald-400 text-sm">{inspectUser.user?.globalTarget ?? 75}%</span>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold block">Onboarding</span>
                     <span className="font-bold text-cyan-300 text-sm">
-                      {inspectUser.user.onboardingCompleted ? "Completed" : "In Progress"}
+                      {inspectUser.user?.onboardingCompleted ? "Completed" : "In Progress"}
                     </span>
                   </div>
                 </div>
@@ -779,19 +828,19 @@ export default function AdminDashboardPage() {
                 {/* Enrolled Courses */}
                 <div className="space-y-2">
                   <h4 className="font-bold text-white text-sm flex items-center justify-between">
-                    <span>Enrolled Courses ({inspectUser.subjects.length})</span>
+                    <span>Enrolled Courses ({(inspectUser.subjects || []).length})</span>
                   </h4>
-                  {inspectUser.subjects.length === 0 ? (
+                  {(inspectUser.subjects || []).length === 0 ? (
                     <p className="text-slate-500 italic">No courses added yet.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {inspectUser.subjects.map((sub) => {
+                      {(inspectUser.subjects || []).map((sub) => {
                         const total = (sub.presentClasses || 0) + (sub.absentClasses || 0);
                         const pct = total > 0 ? Math.round(((sub.presentClasses || 0) / total) * 100) : 100;
                         return (
                           <div key={sub.id} className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-white">{sub.name}</span>
+                              <span className="font-bold text-white">{sub.name || "Course"}</span>
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   pct >= (sub.targetAttendance || 75)
@@ -818,13 +867,13 @@ export default function AdminDashboardPage() {
                 {/* Timetable Schedule Summary */}
                 <div className="space-y-2">
                   <h4 className="font-bold text-white text-sm">
-                    Timetable Entries ({inspectUser.timetable.length} slots configured)
+                    Timetable Entries ({(inspectUser.timetable || []).length} slots configured)
                   </h4>
-                  {inspectUser.timetable.length === 0 ? (
+                  {(inspectUser.timetable || []).length === 0 ? (
                     <p className="text-slate-500 italic">No timetable configured yet.</p>
                   ) : (
                     <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-[11px] text-slate-300">
-                      Configured across {Array.from(new Set(inspectUser.timetable.map((t) => t.dayOfWeek))).length} days of the week.
+                      Configured across {Array.from(new Set((inspectUser.timetable || []).map((t) => t.dayOfWeek))).length} days of the week.
                     </div>
                   )}
                 </div>
@@ -832,19 +881,19 @@ export default function AdminDashboardPage() {
                 {/* Recent Activities for This User */}
                 <div className="space-y-2">
                   <h4 className="font-bold text-white text-sm">Recent Activity History</h4>
-                  {inspectUser.activities.length === 0 ? (
+                  {(inspectUser.activities || []).length === 0 ? (
                     <p className="text-slate-500 italic">No actions recorded for this user.</p>
                   ) : (
                     <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                      {inspectUser.activities.map((a) => (
+                      {(inspectUser.activities || []).map((a) => (
                         <div key={a.id} className="p-2.5 rounded-lg bg-white/[0.03] flex items-center justify-between">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              {renderActionBadge(a.action, a.details)}
-                              <span className="text-[11px] text-slate-300">{formatActivityDetail(a.action, a.details)}</span>
+                              {renderActionBadge(a.action || "", a.details)}
+                              <span className="text-[11px] text-slate-300">{formatActivityDetail(a.action || "", a.details)}</span>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-400">{formatTimeAgo(a.timestamp)}</span>
+                          <span className="text-[10px] text-slate-400">{formatTimeAgo(a.timestamp || Date.now())}</span>
                         </div>
                       ))}
                     </div>

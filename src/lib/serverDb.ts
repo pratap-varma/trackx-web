@@ -1026,3 +1026,32 @@ export async function deleteUserAdmin(userId: string): Promise<void> {
   );
 }
 
+export async function clearUserStudentData(userId: string): Promise<void> {
+  await safeFirestore(
+    async (db) => {
+      const userRef = db.collection("users").doc(userId);
+      const subcollections = ["subjects", "records", "timetable", "grades", "events"];
+      for (const collName of subcollections) {
+        const snap = await userRef.collection(collName).get();
+        if (!snap.empty) {
+          const batch = db.batch();
+          snap.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+        }
+      }
+    },
+    () => {
+      for (const [key, s] of devMemoryStore.subjects.entries()) {
+        if (s.userId === userId) devMemoryStore.subjects.delete(key);
+      }
+      for (const [key, r] of devMemoryStore.records.entries()) {
+        if (r.userId === userId) devMemoryStore.records.delete(key);
+      }
+      for (const [key, t] of devMemoryStore.timetable.entries()) {
+        if (t.userId === userId) devMemoryStore.timetable.delete(key);
+      }
+    }
+  );
+}
+
+

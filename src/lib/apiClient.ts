@@ -30,6 +30,18 @@ async function getAuthHeaders(extraHeaders?: HeadersInit, skipAuth = false): Pro
     } catch (err) {
       console.warn("Could not retrieve Firebase ID token:", err);
     }
+
+    // Fallback auth telemetry headers from local storage
+    try {
+      const cached = localStorage.getItem("trackx_user");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.id) headers["X-Trackx-Uid"] = parsed.id;
+        if (parsed?.email) headers["X-Trackx-Email"] = parsed.email;
+      }
+    } catch {
+      // ignore
+    }
   }
 
   return headers;
@@ -513,4 +525,15 @@ export const apiClient = {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Failed to delete user");
   },
+
+  async clearAdminStudentData(): Promise<void> {
+    const headers = await getAuthHeaders();
+    const res = await fetch("/api/admin/clear-my-data", {
+      method: "POST",
+      headers,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to clear admin student data");
+  },
 };
+

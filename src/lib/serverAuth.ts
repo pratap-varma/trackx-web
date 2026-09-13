@@ -245,8 +245,12 @@ export async function requireAdminUser(req: NextRequest): Promise<{ uid: string;
     authUser = await requireAuthenticatedUser(req);
   } catch {
     const sessionCookie = req.cookies.get("trackx_session")?.value;
+    const headerUid = req.headers.get("x-trackx-uid");
+    const headerEmail = req.headers.get("x-trackx-email");
     if (sessionCookie) {
       authUser = { uid: sessionCookie };
+    } else if (headerUid && headerEmail && isAdminEmail(headerEmail)) {
+      authUser = { uid: headerUid, email: headerEmail };
     }
   }
 

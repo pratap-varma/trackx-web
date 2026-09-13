@@ -32,9 +32,9 @@ export const DesktopNavigation: React.FC = () => {
   const targetPct = user?.globalTarget ?? 75;
   const pct = Math.round(overallMetrics.percentage);
 
-  const isAdmin = user?.email?.toLowerCase() === "pratapvarmauppalapati6@gmail.com";
+  const isAdmin = user?.email?.toLowerCase().trim() === "pratapvarmauppalapati6@gmail.com";
   const navItems = isAdmin
-    ? [...SIDEBAR_NAV, { label: "Admin", href: "/admin", icon: ShieldCheck }]
+    ? [{ label: "Command Center", href: "/admin", icon: ShieldCheck }]
     : SIDEBAR_NAV;
 
   const isActive = (href: string) => {
@@ -124,36 +124,54 @@ export const DesktopNavigation: React.FC = () => {
         </button>
       </div>
 
-      {/* ── Semester Progress — matches reference bottom block ── */}
-      <div
-        className="mx-3 mb-4 p-3.5 rounded-xl"
-        style={{ background: "#2A2A2A", border: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <p
-          className="text-[9px] font-bold uppercase tracking-[1.5px] mb-2"
-          style={{ color: "#555555" }}
-        >
-          Semester Progress
-        </p>
-        <p className="text-sm font-bold mb-1" style={{ color: "#F0F0F0" }}>
-          Overall: {pct}%
-        </p>
+      {/* ── Admin Badge or Student Progress ── */}
+      {isAdmin ? (
         <div
-          className="w-full h-1 rounded-full mb-2 overflow-hidden"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          className="mx-3 mb-4 p-3.5 rounded-xl border border-emerald-500/20"
+          style={{ background: "rgba(16, 185, 129, 0.05)" }}
         >
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${Math.min(pct, 100)}%`,
-              background: pct >= targetPct ? "#4ADE80" : "#F87171",
-            }}
-          />
+          <p className="text-[9px] font-bold uppercase tracking-[1.5px] mb-1 text-emerald-400">
+            System Admin
+          </p>
+          <p className="text-xs font-bold text-white mb-0.5 truncate">
+            {user?.email}
+          </p>
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-emerald-400 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live Console
+          </div>
         </div>
-        <p className="text-[10px]" style={{ color: "#555555" }}>
-          Target: {targetPct}%
-        </p>
-      </div>
+      ) : (
+        <div
+          className="mx-3 mb-4 p-3.5 rounded-xl"
+          style={{ background: "#2A2A2A", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <p
+            className="text-[9px] font-bold uppercase tracking-[1.5px] mb-2"
+            style={{ color: "#555555" }}
+          >
+            Semester Progress
+          </p>
+          <p className="text-sm font-bold mb-1" style={{ color: "#F0F0F0" }}>
+            Overall: {pct}%
+          </p>
+          <div
+            className="w-full h-1 rounded-full mb-2 overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.06)" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.min(pct, 100)}%`,
+                background: pct >= targetPct ? "#4ADE80" : "#F87171",
+              }}
+            />
+          </div>
+          <p className="text-[10px]" style={{ color: "#555555" }}>
+            Target: {targetPct}%
+          </p>
+        </div>
+      )}
     </aside>
   );
 };

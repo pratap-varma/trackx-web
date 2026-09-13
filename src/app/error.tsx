@@ -31,6 +31,11 @@ export default function ErrorBoundary({
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             An unexpected error occurred while rendering this interface. Your data remains safe and synced.
           </p>
+          {error?.message && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 font-mono text-left break-all mt-3">
+              {error.message}
+            </div>
+          )}
         </div>
 
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -42,13 +47,13 @@ export default function ErrorBoundary({
           >
             Try Again
           </GlassButton>
-          <Link href="/dashboard" className="w-full sm:w-auto">
+          <Link href="/admin" className="w-full sm:w-auto">
             <GlassButton
               variant="secondary"
               icon={<Home className="w-4 h-4" />}
               className="w-full sm:w-auto"
             >
-              Dashboard
+              Command Center
             </GlassButton>
           </Link>
         </div>
