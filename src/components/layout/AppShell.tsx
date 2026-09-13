@@ -304,6 +304,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const userEmail = (user?.email || firebaseUser?.email || "").toLowerCase().trim();
   const isAdminUser = userEmail === "pratapvarmauppalapati6@gmail.com";
 
+  // Dedicated full-bleed AdminOS workspace for admin
+  if (isAdminUser && pathname === "/admin") {
+    return (
+      <div className="min-h-screen bg-[#0C0E14] text-slate-100 selection:bg-cyan-500/30">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Mobile / Tablet Top Header */}
