@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserSubjects, saveSubject, removeSubject } from "@/lib/serverDb";
+import { getUserSubjects, saveSubject, removeSubject, logUserActivity } from "@/lib/serverDb";
 import { Subject } from "@/types/trackx";
 import {
   requireAuthenticatedUser,
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     validateResourceOwnership(uid, body.userId);
 
+    const isNew = !body.id;
     const subject: Subject = {
       id: body.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       userId: uid,
@@ -46,6 +47,17 @@ export async function POST(req: NextRequest) {
     };
 
     const saved = await saveSubject(subject);
+    await logUserActivity({
+      userId: uid,
+      action: isNew ? "subject_create" : "subject_update",
+      details: {
+        subjectId: saved.id,
+        name: saved.name,
+        code: saved.code,
+        targetAttendance: saved.targetAttendance,
+      },
+    });
+
     return NextResponse.json({ success: true, subject: saved });
   } catch (err: unknown) {
     return handleAuthError(err);
@@ -64,6 +76,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     await removeSubject(uid, subjectId);
+    await logUserActivity({
+      userId: uid,
+      action: "subject_delete",
+      details: { subjectId },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     return handleAuthError(err);

@@ -11,6 +11,7 @@ import {
   Settings,
   Layers,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useTrackX } from "@/context/TrackXContext";
@@ -30,6 +31,11 @@ export const DesktopNavigation: React.FC = () => {
   const { user, overallMetrics, logout } = useTrackX();
   const targetPct = user?.globalTarget ?? 75;
   const pct = Math.round(overallMetrics.percentage);
+
+  const isAdmin = user?.email?.toLowerCase() === "pratapvarmauppalapati6@gmail.com";
+  const navItems = isAdmin
+    ? [...SIDEBAR_NAV, { label: "Admin", href: "/admin", icon: ShieldCheck }]
+    : SIDEBAR_NAV;
 
   const isActive = (href: string) => {
     const basePath = href.split("?")[0];
@@ -60,7 +66,7 @@ export const DesktopNavigation: React.FC = () => {
 
       {/* ── Nav ── */}
       <nav className="flex-1 px-2 space-y-0.5">
-        {SIDEBAR_NAV.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
           return (

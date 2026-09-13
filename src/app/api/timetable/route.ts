@@ -6,6 +6,7 @@ import {
   replaceUserTimetableEntries,
   removeTimetableEntry,
   clearDayScheduleInDb,
+  logUserActivity,
 } from "@/lib/serverDb";
 import { TimetableEntry } from "@/types/trackx";
 import {
@@ -55,6 +56,13 @@ export async function POST(req: NextRequest) {
       } else {
         await batchSaveTimetableEntries(uid, sanitizedEntries);
       }
+
+      await logUserActivity({
+        userId: uid,
+        action: "timetable_update",
+        details: { count: sanitizedEntries.length, replace: body.replace === true },
+      });
+
       return NextResponse.json({ success: true, count: sanitizedEntries.length });
     }
 
@@ -76,6 +84,17 @@ export async function POST(req: NextRequest) {
     };
 
     const saved = await saveTimetableEntry(entry);
+    await logUserActivity({
+      userId: uid,
+      action: "timetable_update",
+      details: {
+        entryId: saved.id,
+        dayOfWeek: saved.dayOfWeek,
+        periodNumber: saved.periodNumber,
+        subjectId: saved.subjectId,
+      },
+    });
+
     return NextResponse.json({ success: true, entry: saved });
   } catch (err: unknown) {
     return handleAuthError(err);
@@ -93,11 +112,21 @@ export async function DELETE(req: NextRequest) {
 
     if (dayOfWeek !== null && dayOfWeek !== undefined) {
       await clearDayScheduleInDb(uid, parseInt(dayOfWeek));
+      await logUserActivity({
+        userId: uid,
+        action: "timetable_update",
+        details: { action: "clear_day", dayOfWeek: parseInt(dayOfWeek) },
+      });
       return NextResponse.json({ success: true });
     }
 
     if (entryId) {
       await removeTimetableEntry(uid, entryId);
+      await logUserActivity({
+        userId: uid,
+        action: "timetable_update",
+        details: { action: "delete_slot", entryId },
+      });
       return NextResponse.json({ success: true });
     }
 

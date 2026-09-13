@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserRecords, addAttendanceRecord, removeAttendanceRecord } from "@/lib/serverDb";
+import { getUserRecords, addAttendanceRecord, removeAttendanceRecord, logUserActivity } from "@/lib/serverDb";
 import { AttendanceRecord } from "@/types/trackx";
 import {
   requireAuthenticatedUser,
@@ -42,6 +42,18 @@ export async function POST(req: NextRequest) {
     };
 
     await addAttendanceRecord(record);
+    await logUserActivity({
+      userId: uid,
+      action: "attendance_mark",
+      details: {
+        subjectId: record.subjectId,
+        status: record.status,
+        date: record.date,
+        periodNumber: record.periodNumber,
+        durationHours: record.durationHours,
+      },
+    });
+
     return NextResponse.json({ success: true, record });
   } catch (err: unknown) {
     return handleAuthError(err);
@@ -72,6 +84,17 @@ export async function DELETE(req: NextRequest) {
       periodNumber !== null && periodNumber !== undefined ? Number(periodNumber) : undefined,
       durationHours
     );
+
+    await logUserActivity({
+      userId: uid,
+      action: "attendance_delete",
+      details: {
+        subjectId,
+        date,
+        periodNumber,
+        durationHours,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

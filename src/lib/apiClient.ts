@@ -430,4 +430,87 @@ export const apiClient = {
     }
     return json.data;
   },
+
+  // ------------------------------------------------------------
+  // Admin Command Center Methods
+  // ------------------------------------------------------------
+
+  async getAdminOverview(): Promise<{
+    adminEmail: string;
+    metrics: {
+      totalUsers: number;
+      activeToday: number;
+      totalAttendanceRecords: number;
+      totalSubjects: number;
+    };
+    recentActivities: Array<{
+      id: string;
+      userId: string;
+      userEmail: string;
+      userName: string;
+      action: string;
+      details?: Record<string, unknown>;
+      timestamp: number;
+    }>;
+  }> {
+    const headers = await getAuthHeaders();
+    const res = await fetch("/api/admin/overview", { headers });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to load admin overview");
+    return json;
+  },
+
+  async getAdminUsers(): Promise<{
+    users: Array<UserProfile & { subjectsCount: number; attendanceCount: number; lastActiveTimestamp: number }>;
+  }> {
+    const headers = await getAuthHeaders();
+    const res = await fetch("/api/admin/users", { headers });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to load admin users");
+    return json;
+  },
+
+  async getAdminUserDetail(userId: string): Promise<{
+    user: UserProfile;
+    subjects: Subject[];
+    timetable: TimetableEntry[];
+    records: AttendanceRecord[];
+    activities: Array<{
+      id: string;
+      userId: string;
+      userEmail: string;
+      userName: string;
+      action: string;
+      details?: Record<string, unknown>;
+      timestamp: number;
+    }>;
+  }> {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, { headers });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to load user detail");
+    return json;
+  },
+
+  async updateAdminUser(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update user");
+    return json.user;
+  },
+
+  async deleteAdminUser(userId: string): Promise<void> {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to delete user");
+  },
 };

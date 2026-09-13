@@ -2,13 +2,14 @@
 
 import React from "react";
 import Link from "next/link";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Settings, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useTrackX } from "@/context/TrackXContext";
 
 export const TopHeader: React.FC = () => {
-  const { notifications } = useTrackX();
+  const { user, notifications } = useTrackX();
   const unread = notifications.filter((n) => !n.isRead).length;
+  const isAdmin = user?.email?.toLowerCase() === "pratapvarmauppalapati6@gmail.com";
 
   return (
     <header
@@ -29,6 +30,15 @@ export const TopHeader: React.FC = () => {
       </Link>
 
       <div className="flex items-center gap-1">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            title="Admin Command Center"
+          >
+            <ShieldCheck className="w-4.5 h-4.5" />
+          </Link>
+        )}
         <Link
           href="/notifications"
           className="relative p-2 rounded-lg"

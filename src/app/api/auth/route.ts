@@ -6,6 +6,7 @@ import {
   hashPassword,
   verifyPassword,
   sanitizeUser,
+  logUserActivity,
   UserDbEntry,
 } from "@/lib/serverDb";
 import {
@@ -66,6 +67,14 @@ export async function POST(req: NextRequest) {
       };
 
       const saved = await upsertUser(newUser);
+      await logUserActivity({
+        userId: saved.id,
+        userEmail: saved.email,
+        userName: saved.name,
+        action: "signup",
+        details: { method: "email" },
+      });
+
       const res = NextResponse.json({ success: true, user: sanitizeUser(saved) });
       res.cookies.set("trackx_session", saved.id, {
         httpOnly: true,
@@ -92,6 +101,14 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Invalid password" }, { status: 401 });
         }
       }
+
+      await logUserActivity({
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        action: "login",
+        details: { method: "email" },
+      });
 
       const res = NextResponse.json({ success: true, user: sanitizeUser(user) });
       res.cookies.set("trackx_session", user.id, {
@@ -156,6 +173,14 @@ export async function POST(req: NextRequest) {
           updatedTimestamp: Date.now(),
         });
       }
+
+      await logUserActivity({
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        action: "login",
+        details: { method: "firebase_auth_sync" },
+      });
 
       const res = NextResponse.json({ success: true, user: sanitizeUser(user) });
       res.cookies.set("trackx_session", user.id, {

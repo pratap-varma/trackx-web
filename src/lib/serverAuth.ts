@@ -224,3 +224,46 @@ export function handleAuthError(err: unknown): NextResponse {
   console.error("API handler unexpected error:", err);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
+
+export const ADMIN_EMAILS: string[] = [
+  "pratapvarmauppalapati6@gmail.com",
+  ...(process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL.toLowerCase().trim()] : []),
+];
+
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === email.toLowerCase().trim());
+}
+
+/**
+ * Enforces admin access. Rejects any user whose email is not in the admin list with 403 Forbidden.
+ */
+export async function requireAdminUser(req: NextRequest): Promise<{ uid: string; email: string }> {
+  let authUser: { uid: string; email?: string } | null = null;
+
+  try {
+    authUser = await requireAuthenticatedUser(req);
+  } catch {
+    const sessionCookie = req.cookies.get("trackx_session")?.value;
+    if (sessionCookie) {
+      authUser = { uid: sessionCookie };
+    }
+  }
+
+  if (!authUser) {
+    throw new AuthError("Unauthorized: Authentication required", 401);
+  }
+
+  let userEmail = authUser.email;
+  if (!userEmail) {
+    const { findUserById } = await import("@/lib/serverDb");
+    const user = await findUserById(authUser.uid);
+    userEmail = user?.email;
+  }
+
+  if (!userEmail || !isAdminEmail(userEmail)) {
+    throw new AuthError("Forbidden: Administrator privileges required", 403);
+  }
+
+  return { uid: authUser.uid, email: userEmail };
+}

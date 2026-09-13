@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // 1. Enforce Stage 2 Token Authentication
-    await requireAuthenticatedUser(req);
+    const authUser = await requireAuthenticatedUser(req);
 
     // 2. Parse multipart form data
     const formData = await req.formData().catch(() => null);
@@ -36,6 +36,18 @@ export async function POST(req: NextRequest) {
 
     // 4. Run Gemini Vision extraction
     const result = await extractAttendanceFromImage(buffer, mimeType);
+
+    const { logUserActivity } = await import("@/lib/serverDb");
+    await logUserActivity({
+      userId: authUser.uid,
+      userEmail: authUser.email,
+      action: "ocr_scan",
+      details: {
+        type: "attendance_ledger",
+        subjectsFound: result.subjects?.length || 0,
+        overallPercentage: result.overall?.percentage,
+      },
+    });
 
     return NextResponse.json({
       success: true,

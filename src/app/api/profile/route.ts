@@ -58,6 +58,20 @@ export async function POST(req: NextRequest) {
       updatedTimestamp: Date.now(),
     });
 
+    const { logUserActivity } = await import("@/lib/serverDb");
+    await logUserActivity({
+      userId: uid,
+      userEmail: updated.email,
+      userName: updated.name,
+      action: "profile_update",
+      details: {
+        branch: updated.branch,
+        semester: updated.semester,
+        globalTarget: updated.globalTarget,
+        onboardingCompleted: updated.onboardingCompleted,
+      },
+    });
+
     return NextResponse.json({ success: true, user: sanitizeUser(updated) });
   } catch (err: unknown) {
     return handleAuthError(err);

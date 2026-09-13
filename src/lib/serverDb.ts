@@ -16,6 +16,26 @@ export interface UserDbEntry extends UserProfile {
   holidays?: Record<string, boolean>;
 }
 
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  action:
+    | "login"
+    | "signup"
+    | "attendance_mark"
+    | "attendance_delete"
+    | "subject_create"
+    | "subject_update"
+    | "subject_delete"
+    | "timetable_update"
+    | "ocr_scan"
+    | "profile_update";
+  details?: Record<string, unknown>;
+  timestamp: number;
+}
+
 export function isFirestoreConfigured(): boolean {
   if (
     (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) ||
@@ -46,6 +66,7 @@ const devMemoryStore = {
   records: new Map<string, AttendanceRecord>(),
   grades: new Map<string, CourseGradeItem>(),
   events: new Map<string, AcademicEventItem>(),
+  activityLogs: [] as ActivityLog[],
 };
 
 async function safeFirestore<T>(
@@ -55,7 +76,13 @@ async function safeFirestore<T>(
   if (isFirestoreConfigured()) {
     try {
       const db = getAdminFirestore();
-      return await op(db);
+      let timer: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Firestore operation timed out after 3500ms")), 3500);
+      });
+      const result = await Promise.race([op(db), timeoutPromise]);
+      if (timer) clearTimeout(timer);
+      return result;
     } catch (err: unknown) {
       console.warn("Firestore operation warning, falling back to memory store:", err instanceof Error ? err.message : err);
     }
@@ -812,5 +839,190 @@ export async function resetUserHoliday(
     return existing.holidays;
   }
   return {};
+}
+
+// ------------------------------------------------------------
+// Activity Logging & Admin Operations
+// ------------------------------------------------------------
+
+export async function logUserActivity(params: {
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  action: ActivityLog["action"];
+  details?: Record<string, unknown>;
+}): Promise<ActivityLog> {
+  let email = params.userEmail || "";
+  let name = params.userName || "";
+
+  if (!email || !name) {
+    try {
+      const user = await findUserById(params.userId);
+      if (user) {
+        if (!email) email = user.email || "";
+        if (!name) name = user.name || "";
+      }
+    } catch {
+      // ignore user lookup failure
+    }
+  }
+
+  const entry: ActivityLog = {
+    id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    userId: params.userId,
+    userEmail: email,
+    userName: name || "Student",
+    action: params.action,
+    details: params.details || {},
+    timestamp: Date.now(),
+  };
+
+  await safeFirestore(
+    async (db) => {
+      await db.collection("activity_logs").doc(entry.id).set(entry);
+    },
+    () => {}
+  );
+
+  devMemoryStore.activityLogs.unshift(entry);
+  if (devMemoryStore.activityLogs.length > 2000) {
+    devMemoryStore.activityLogs.pop();
+  }
+
+  return entry;
+}
+
+export async function getRecentActivityLogs(limitCount = 100, userId?: string): Promise<ActivityLog[]> {
+  return safeFirestore(
+    async (db) => {
+      let query: FirebaseFirestore.Query = db.collection("activity_logs");
+      if (userId) {
+        query = query.where("userId", "==", userId);
+      }
+      query = query.orderBy("timestamp", "desc").limit(limitCount);
+      const snap = await query.get();
+      return snap.docs.map((doc) => doc.data() as ActivityLog);
+    },
+    () => {
+      let filtered = devMemoryStore.activityLogs;
+      if (userId) {
+        filtered = filtered.filter((a) => a.userId === userId);
+      }
+      return filtered.slice(0, limitCount);
+    }
+  );
+}
+
+export async function getAllUsersAdmin(): Promise<
+  Array<UserProfile & { subjectsCount: number; attendanceCount: number; lastActiveTimestamp: number }>
+> {
+  return safeFirestore(
+    async (db) => {
+      const snap = await db.collection("users").get();
+      const users: Array<UserProfile & { subjectsCount: number; attendanceCount: number; lastActiveTimestamp: number }> = [];
+
+      for (const doc of snap.docs) {
+        const u = doc.data() as UserDbEntry;
+        const sanitized = sanitizeUser(u);
+        if (!sanitized) continue;
+
+        const [subSnap, recSnap] = await Promise.all([
+          doc.ref.collection("subjects").get().catch(() => ({ size: 0 })),
+          doc.ref.collection("records").get().catch(() => ({ size: 0 })),
+        ]);
+
+        users.push({
+          ...sanitized,
+          subjectsCount: subSnap.size,
+          attendanceCount: recSnap.size,
+          lastActiveTimestamp: u.updatedTimestamp || u.createdTimestamp || Date.now(),
+        });
+      }
+
+      return users.sort((a, b) => (b.lastActiveTimestamp || 0) - (a.lastActiveTimestamp || 0));
+    },
+    () => {
+      return Array.from(devMemoryStore.users.values()).map((u) => {
+        const sanitized = sanitizeUser(u)!;
+        const subjectsCount = Array.from(devMemoryStore.subjects.values()).filter((s) => s.userId === u.id).length;
+        const attendanceCount = Array.from(devMemoryStore.records.values()).filter((r) => r.userId === u.id).length;
+        return {
+          ...sanitized,
+          subjectsCount,
+          attendanceCount,
+          lastActiveTimestamp: u.updatedTimestamp || u.createdTimestamp || Date.now(),
+        };
+      });
+    }
+  );
+}
+
+export async function getUserDeepDiveAdmin(userId: string): Promise<{
+  user: UserProfile | null;
+  subjects: Subject[];
+  timetable: TimetableEntry[];
+  records: AttendanceRecord[];
+  activities: ActivityLog[];
+}> {
+  const [user, subjects, timetable, records, activities] = await Promise.all([
+    findUserById(userId).then(sanitizeUser),
+    getUserSubjects(userId),
+    getUserTimetable(userId),
+    getUserRecords(userId),
+    getRecentActivityLogs(50, userId),
+  ]);
+
+  return { user, subjects, timetable, records, activities };
+}
+
+export async function updateUserAdmin(userId: string, updates: Partial<UserDbEntry>): Promise<UserProfile> {
+  const existing = await findUserById(userId);
+  if (!existing) throw new Error("User not found");
+
+  const safeUpdates = { ...updates };
+  delete safeUpdates.passwordHash;
+  delete safeUpdates.salt;
+  delete safeUpdates.id;
+
+  const merged: UserDbEntry = {
+    ...existing,
+    ...safeUpdates,
+    updatedTimestamp: Date.now(),
+  };
+
+  const saved = await upsertUser(merged);
+  return sanitizeUser(saved)!;
+}
+
+export async function deleteUserAdmin(userId: string): Promise<void> {
+  await safeFirestore(
+    async (db) => {
+      const userRef = db.collection("users").doc(userId);
+
+      const subcollections = ["subjects", "records", "timetable", "grades", "events"];
+      for (const collName of subcollections) {
+        const snap = await userRef.collection(collName).get();
+        if (!snap.empty) {
+          const batch = db.batch();
+          snap.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+        }
+      }
+
+      await userRef.delete();
+    },
+    () => {
+      devMemoryStore.users.delete(userId);
+      for (const [key, s] of devMemoryStore.subjects.entries()) {
+        if (s.userId === userId) devMemoryStore.subjects.delete(key);
+      }
+      for (const [key, r] of devMemoryStore.records.entries()) {
+        if (r.userId === userId) devMemoryStore.records.delete(key);
+      }
+      for (const [key, t] of devMemoryStore.timetable.entries()) {
+        if (t.userId === userId) devMemoryStore.timetable.delete(key);
+      }
+    }
+  );
 }
 
