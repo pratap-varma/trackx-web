@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
-  const { overallMetrics } = useTrackX();
+  const { overallMetrics, user } = useTrackX();
+  const isAdmin = user?.email?.toLowerCase().trim() === "pratapvarmauppalapati6@gmail.com";
   const mounted = useIsMounted();
 
   const hasLiveMetrics = mounted && overallMetrics && overallMetrics.conducted > 0;
@@ -59,16 +60,16 @@ export default function LandingPage() {
 
           {/* 3D Physical Extruded Call to Action Buttons */}
           <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
-            <Link href="/dashboard">
-              <button className="skeuo-3d-btn-primary px-8 py-4 rounded-2xl font-black text-white text-base tracking-wide flex items-center gap-2.5 cursor-pointer">
-                <span>Launch Dashboard</span>
-                <ArrowRight className="w-5 h-5 text-cyan-300" />
+            <Link href={isAdmin ? "/admin" : "/dashboard"}>
+              <button className={`skeuo-3d-btn-primary px-8 py-4 rounded-2xl font-black text-white text-base tracking-wide flex items-center gap-2.5 cursor-pointer ${isAdmin ? "!bg-emerald-600 !shadow-emerald-600/30" : ""}`}>
+                <span>{isAdmin ? "Open Admin Command Center" : "Launch Dashboard"}</span>
+                {isAdmin ? <ShieldCheck className="w-5 h-5 text-emerald-300" /> : <ArrowRight className="w-5 h-5 text-cyan-300" />}
               </button>
             </Link>
 
             <Link href="/login">
               <button className="skeuo-3d-btn-secondary px-7 py-4 rounded-2xl font-bold text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white text-base tracking-wide flex items-center gap-2 cursor-pointer">
-                <span>Student Sign In</span>
+                <span>{isAdmin ? "Switch Account" : "Student Sign In"}</span>
                 <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               </button>
             </Link>

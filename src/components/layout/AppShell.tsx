@@ -70,6 +70,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     // 6. AUTHENTICATED + PROFILE_LOADED (or confirmed new user): Evaluate onboarding
     if (profileStatus === "loaded" || profileStatus === "missing") {
+      const userEmail = (user?.email || firebaseUser?.email || "").toLowerCase().trim();
+      const isAdminUser = userEmail === "pratapvarmauppalapati6@gmail.com";
+
+      if (isAdminUser) {
+        if (pathname.startsWith("/login") || pathname.startsWith("/signup") || isOnboarding) {
+          router.replace("/admin");
+          return;
+        }
+      }
+
       const isNewUser = profileStatus === "missing";
       const onboardingComplete =
         !isNewUser &&
@@ -90,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       } else {
         // Completed onboarding: redirect away from auth pages and onboarding
         if (pathname.startsWith("/login") || pathname.startsWith("/signup") || isOnboarding) {
-          router.replace("/dashboard");
+          router.replace(isAdminUser ? "/admin" : "/dashboard");
         }
       }
     }

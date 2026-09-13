@@ -18,6 +18,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const ADMIN_EMAIL = "pratapvarmauppalapati6@gmail.com";
+  const isAdminEmail = (em?: string | null) => em?.toLowerCase().trim() === ADMIN_EMAIL;
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -36,7 +39,12 @@ export default function LoginPage() {
         localStorage.setItem("trackx_user", JSON.stringify(serverRes.user));
       }
 
-      const targetRoute = serverRes.user?.onboardingCompleted ? "/dashboard" : "/onboarding";
+      const isUserAdmin = isAdminEmail(serverRes.user?.email || email);
+      const targetRoute = isUserAdmin
+        ? "/admin"
+        : serverRes.user?.onboardingCompleted
+        ? "/dashboard"
+        : "/onboarding";
       router.push(targetRoute);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to sign in. Please verify credentials.";
@@ -50,8 +58,10 @@ export default function LoginPage() {
     setError(null);
     setIsLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
-      router.push("/dashboard");
+      const cred = await signInWithPopup(auth, googleProvider);
+      const googleEmail = cred.user?.email || auth.currentUser?.email;
+      const targetRoute = isAdminEmail(googleEmail) ? "/admin" : "/dashboard";
+      router.push(targetRoute);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Google sign-in canceled or failed.";
       setError(msg);

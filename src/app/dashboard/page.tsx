@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTrackX } from "@/context/TrackXContext";
 import { calculateIfBunk } from "@/lib/attendanceMath";
@@ -429,12 +430,25 @@ const WEEKDAY_NAMES_MAP: Record<number, string> = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const {
     user, overallMetrics, subjects, timetable, subjectMetrics,
     records, markAttendance, unmarkAttendance, academicEvents, holidayOverrides,
     saturdayTimetableOverrides, getClassNote, saveClassNote, deleteClassNote,
     logout,
   } = useTrackX();
+
+  const isAdmin = user?.email?.toLowerCase().trim() === "pratapvarmauppalapati6@gmail.com";
+
+  useEffect(() => {
+    // If admin arrives at /dashboard without ?view=student, immediately take them to /admin
+    if (isAdmin && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") !== "student") {
+        router.replace("/admin");
+      }
+    }
+  }, [isAdmin, router]);
 
   const [now] = useState(() => new Date());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -657,6 +671,35 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
+      {/* ══ ADMIN NOTIFICATION BANNER ════════════════════════════ */}
+      {isAdmin && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-indigo-500/15 to-cyan-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg shadow-emerald-500/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                Administrator Command Center
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
+                  Active
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300">
+                You are authenticated as superadmin (<span className="text-emerald-300 font-mono">{user?.email}</span>).
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin"
+            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-emerald-500/20 shrink-0"
+          >
+            Open Admin Panel
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       {/* ══ TOP HEADER ══════════════════════════════════════════ */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -741,6 +784,16 @@ export default function DashboardPage() {
 
                 {/* Menu Items */}
                 <div className="space-y-0.5">
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>Admin Command Center</span>
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     onClick={() => setIsUserMenuOpen(false)}
