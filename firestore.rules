@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User document and all nested private subcollections
+    match /users/{userId} {
+      // Direct access to user profile document
+      allow read, write: if isOwner(userId);
+
+      // Subjects subcollection: users/{userId}/subjects/{subjectId}
+      match /subjects/{subjectId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Attendance records subcollection: users/{userId}/records/{recordId}
+      match /records/{recordId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Timetable subcollection: users/{userId}/timetable/{entryId}
+      match /timetable/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // CGPA Grades subcollection: users/{userId}/grades/{gradeId}
+      match /grades/{gradeId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Academic events subcollection: users/{userId}/events/{eventId}
+      match /events/{eventId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Any additional user settings or overrides
+      match /settings/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Default deny all other paths across database
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

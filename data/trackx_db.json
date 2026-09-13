@@ -1,0 +1,79 @@
+{
+  "users": [
+    {
+      "id": "PwBoGl5f9kgCd4B3mEK5eISqpZH2",
+      "name": "pratap varma",
+      "email": "pratapvarmauppalapati6@gmail.com",
+      "branch": "Computer Science & Engineering",
+      "semester": 1,
+      "globalTarget": 75,
+      "themeMode": "dark",
+      "collegeName": "University",
+      "registrationNumber": "",
+      "programmeName": "B.Tech",
+      "onboardingCompleted": true,
+      "createdTimestamp": 1789064280246,
+      "updatedTimestamp": 1789065943590
+    },
+    {
+      "id": "usr-1789064441915",
+      "name": "Alex Rivera",
+      "email": "teststudent@trackx.app",
+      "branch": "Computer Science & Engineering",
+      "semester": 1,
+      "globalTarget": 75,
+      "themeMode": "dark",
+      "collegeName": "University",
+      "registrationNumber": "",
+      "programmeName": "B.Tech",
+      "onboardingCompleted": true,
+      "createdTimestamp": 1789064441915,
+      "updatedTimestamp": 1789064441915,
+      "passwordHash": "7ebfb0b6be99a66181af46fc59c99a642fb36a26388ba66fe25e7b2314a6c5961b40c26cf92667a8196abff5e0205d7cd1c36c1d57476f82e6ae9138e3d6bd54",
+      "salt": "604d997b5037d04d6edfda0fa1483a7c"
+    },
+    {
+      "id": "usr-1789108689724",
+      "name": "Security Register Test",
+      "email": "sec_test_1789108689669@university.edu",
+      "branch": "Computer Science & Engineering",
+      "semester": 1,
+      "globalTarget": 75,
+      "themeMode": "dark",
+      "collegeName": "University",
+      "registrationNumber": "",
+      "programmeName": "B.Tech",
+      "onboardingCompleted": true,
+      "createdTimestamp": 1789108689724,
+      "updatedTimestamp": 1789108689724,
+      "passwordHash": "1c7e541838eb8fae27387e6116d2bdd58fdda3ed652975b816358bab855d63f6d7d36fa3c0f90980ea1fb1799ba3ee0ef57ad6af29beaaa4ce52bc55927a38d6",
+      "salt": "d8a20b176c8f13c6667891501bb6e540"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "sub-1789064446320-zoob",
+      "userId": "usr-1789064441915",
+      "semesterId": "sem-usr-1789064441915",
+      "name": "Data Structures & Algorithms",
+      "code": "CS201",
+      "facultyName": "Prof. Turing",
+      "colorValue": "#5B5FEF",
+      "type": "Theory",
+      "credits": 3,
+      "weeklyPeriods": 3,
+      "targetAttendance": 75,
+      "presentClasses": 5,
+      "absentClasses": 1,
+      "status": "Active",
+      "createdAt": 1789064446320,
+      "updatedAt": 1789064446320
+    }
+  ],
+  "timetable": [],
+  "records": [],
+  "grades": [],
+  "events": [],
+  "substitutes": {},
+  "holidays": {}
+}
